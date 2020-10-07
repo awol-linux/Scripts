@@ -1,5 +1,5 @@
 #/bin/env bash
-set -x
+#set -x
 
 fn() {
 	while true; do
@@ -30,17 +30,18 @@ while true ; do
 		echo $pvinput
 		if [[ $(sudo fdisk -l | awk '/^\/dev/ {print $1}' | grep "$pvinput") ]] ; then
 			echo "partition $pvinput valid"
-			echo would you like to enter anther partition
+			echo "would you like to enter anther partition"
 			read input
+			fn input
+			if [output == false]; then
+				break
+			fi
 		else
 			echo "partition $pvinput not a valid partition"
 		fi
-		fn $input
-		if [output == false]
-			break
-		fi
 	else
-		"OK no assigning any physical volumes"
+		echo "OK no assigning any physical volumes"
+		break
 	fi
 	pvs
 done
@@ -53,17 +54,20 @@ if [[ ! -z $pvinput ]] ; then
 		fn input
 		if [ $output == true ]; then
 			physical-volumes=$output
-		else
-			echo "Please enter disk names"
-			read pvnames
-			if [[ $(sudo pvs | grep "$pvnames" ) ]] ; then
-				echo $pvnames
-			else 
-				echo "Device $pvnames is not assigned"
-			fi
-		fi
 fi
-#	
-#else 
-#	read -r -p "please" 
-#echo $vginput
+
+while true; do
+	echo "would you like to add another physical volume"
+	fn input
+	if [[ output == true ]]; then
+		echo "Please enter disk names"
+		read pvnames
+		if [[ $(sudo pvs | grep "$pvnames" ) ]] ; then
+			echo "$pvnames is valid and will be used"
+		else 
+			echo "Device $pvnames is not valid"
+		fi
+	else
+		break
+	fi
+done
