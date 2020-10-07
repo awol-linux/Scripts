@@ -29,20 +29,35 @@ while true ; do
 	echo "available paritions are" 
 	echo "$(lsblk -o name,type,fstype,size | awk -F'-' '/part\s{2}/ {$1="" ; print}')"
 	read pvinput
-	[[ -z $pvinput ]] && echo "partition $pvinput not a valid partition"i && break ||\
-	[[ $(sudo fdisk -l | awk '/^\/dev/ {print $1}' | egrep  "^$pvinput"$) ]] &&\
-	[[ $pvinput != "${pvcandidates[@]}" ]] &&\
-		pvcandidates+=($pvinput) && \
-		echo "partition $pvinput valid" && \
-		echo ${pvcandidates[*]} && \
-		echo "would you like to enter anther partition" && \
-		read input && \
-		fn input && \
+	
+	# if blank line entered then exit loop 
+
+	if [[ -z $pvinput ]]; then
+	       	echo "No input given not assigning any new partitions" 
+		break
+	
+	# verify disk is valid
+	
+	elif [[ ! $(sudo fdisk -l | awk '/^\/dev/ {print $1}' | egrep  "^$pvinput"$) ]]; then 
+		echo $pvinput not a valid partion
+	
+	# verify not already entered
+	
+	elif [[ $(printf '%s\n' "${pvcandidates[@]}" | grep -w -P "$pvinput") ]]; then
+		echo "$pvinput already enterd"
+	
+	else	
+		pvcandidates+=($pvinput) 
+		echo "partition $pvinput valid"
+		echo ${pvcandidates[@]}
+		echo "would you like to enter anther partition"
+		read input
+		fn input 
 		if [[ $output == false ]]; then
 			break
 		fi
 #	else
-#	fi
+	fi
 done
 #	else
 #		
