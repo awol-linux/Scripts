@@ -1,6 +1,6 @@
 #/bin/env bash
-#set -x
 
+# Add a function for a yes or no prompt
 fn() {
 	while true; do
 		case $input in
@@ -23,36 +23,39 @@ fn() {
 
 
 #Assign pv
+declare -a pvcandidates
 while true ; do
 	echo 'Please enter physcal device path or press Enter to skip'
+	echo "available paritions are" 
+	echo "$(lsblk -o name,type,fstype,size | awk -F'-' '/part\s{2}/ {$1="" ; print}')"
 	read pvinput
-	if [[ ! -z $pvinput ]] ; then
-		echo $pvinput
-		if [[ $(sudo fdisk -l | awk '/^\/dev/ {print $1}' | grep "$pvinput") ]] ; then
-			echo "partition $pvinput valid"
-			echo "would you like to enter anther partition"
-			read input
-			fn input
-			if [output == false]; then
-				break
-			fi
-		else
-			echo "partition $pvinput not a valid partition"
+	[[ -z $pvinput ]] && echo "partition $pvinput not a valid partition"i && break ||\
+	[[ $(sudo fdisk -l | awk '/^\/dev/ {print $1}' | egrep  "^$pvinput"$) ]] &&\
+	[[ $pvinput != "${pvcandidates[@]}" ]] &&\
+		pvcandidates+=($pvinput) && \
+		echo "partition $pvinput valid" && \
+		echo ${pvcandidates[*]} && \
+		echo "would you like to enter anther partition" && \
+		read input && \
+		fn input && \
+		if [[ $output == false ]]; then
+			break
 		fi
-	else
-		echo "OK no assigning any physical volumes"
-		break
-	fi
-	pvs
+#	else
+#	fi
 done
-
+#	else
+#		
+#		break
+#	fi
+pvs
 # assign volume group
 echo "Enter volume group name"
 read vgname
 if [[ ! -z $pvinput ]] ; then
 		read -r -p "Do you want to create a volume group using $pvinput" input 
 		fn input
-		if [ $output == true ]; then
+		if [[ $output == true ]]; then
 			physical-volumes=$output
 fi
 
