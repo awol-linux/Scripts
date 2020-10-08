@@ -1,7 +1,7 @@
 #/bin/env bash
 # 
 # enable for debugging
-set -x
+# set -x
 #
 
 ##########################################################
@@ -13,6 +13,15 @@ set -x
 # Section 4 is for creating logical volumes
 #
 ###########################################################
+
+
+# Check for root privelidge
+
+if [ "$EUID" -ne 0 ]
+  then echo "This script requires root permission in order to run."
+  exit
+fi
+
 
 # 
 # section 1
@@ -55,12 +64,18 @@ fn() {
 
 declare -a pvcandidates
 
-# Enter device path loop untill done
+# Enter device path loop until done
 
 while true ; do
-	echo 'Please enter physcal device path or press Enter to skip'
-	echo "available paritions are" 
+	echo "Please enter physical device path or press ENTER to skip"
+	echo "The following partitions are available" 
+	echo " "
 
+	#
+	# section 2a 
+	# List available devices
+	#
+	
 	# Check if any physical volumes have been assigned
 	
 	if [[ -n ${pvcandidates[*]} ]];then 
@@ -73,11 +88,16 @@ while true ; do
 	
 	else
 	
-	# If there aren-t candidates echo available partitions disks.
+		# If there aren-t candidates echo available partitions disks.
 	
 		echo "$(lsblk -o name,type,fstype,size \
 			| awk -F'-' '/part\s{2}/ {$1="";printf "/dev/"; print $2}')"
 	fi
+	
+	#
+	# section 2b
+	# handle physical volume input
+	#
 	
 	read pvinput
 	
@@ -88,7 +108,9 @@ while true ; do
 		break
 	
 	# verify disk is valid if there is input
-	
+
+# disabled for debugging
+
 #	elif [[ ! $(sudo fdisk -l | awk '/^\/dev/ {print $1}' | egrep  "^$pvinput"$) ]]; then 
 #		echo $pvinput not a valid partion
 	
@@ -97,13 +119,11 @@ while true ; do
 	elif [[ $(printf '%s\n' "${pvcandidates[@]}" | grep -w -P "$pvinput") ]]; then
 		echo "$pvinput already enterd"
 	
-	# add partition to array
+	# Since we validated the partition now add partition to array
 	
 	else	
 		pvcandidates+=($pvinput) 
-		echo "partition $pvinput valid"
-		echo ${pvcandidates[@]}
-		echo "would you like to enter anther partition"
+		echo -e "partition $pvinput valid \n ${pvcandidates[@]} \n would you like to enter anther partition"
 		read input
 		fn input 
 		if [[ $output == false ]]; then
@@ -115,6 +135,7 @@ done
 
 # Show Physical Volume To confirm action was done
 
+echo "pelase verify that the following partition table is accurate"
 pvs
 
 
@@ -128,33 +149,41 @@ pvs
 # then assume you want to use it  
 
 
-# Ask for volume group name
 
-echo "Enter volume group name or press enter to pick a existing volume group"
-read vgname
 # check if somthing was entered
-if [[ -z $vgname ]]; then
-	while true; do
-		echo "No input found not creating a new volume group"
-		echo "which volume group do you want to use"
-		echo "$(vgs | awk 'NR>1 {print}')"
-		read vgname
-		if [[ -n $vgname ]]; then
-			if [[ $(vgs | awk 'NR>1 { print $1 }') = $vgname ]]; then
-				echo $vgname\ selected
-				break
-			else
-				echo "$vgname does not exist would you like to make it?"
-				read input
-				fn input
-				if [[ $output == true ]] ;then
-					break
-				fi
-			fi
+#if [[ -z $vgname ]]; then
+while true; do
+	
+	# Ask for volume group name
+	
+	echo "Enter volume group name or press enter to pick a existing volume group"
+	read vgname
+	
+	# check if input is blank
+	
+	if [[ -z $vgname ]]; then
+		echo -e "No input found not creating a new volume group \n which volume group do you want to use \n$(vgs | awk 'NR>1 {print}')"
+						
+	# If there is input and it does exist
+			
+	elif [[ $(vgs | awk 'NR>1 { print $1 }') = $vgname ]]; then
+		echo $vgname\ selected
+		break
+	
+	# If there is input and it doesnt exists
+	
+	else
+		echo "$vgname does not exist would you like to make it?"
+		read input
+		fn input
+		if [[ $output == true ]] ;then
+			break
 		fi
-	done
-fi
+	fi
+done
+
 echo $vgname
+
 # If you entered a volume ask if you want to use it
 #
 #
@@ -164,7 +193,7 @@ echo $vgname
 #
 #
 
-if [[ -z ${pvcandidates[1]} ]]; then 
+if [[ -n ${pvcandidates[1]} ]];then 
 	echo "Do you want to create $vgname using input ${pvcandidates[@]}"
 	fn input
 	if [[ $output == true ]]; then
@@ -185,16 +214,30 @@ while true; do
 	read input
 	fn $input
 	if [[ $output == true ]]; then
-		echo "Please enter disk names"
+		echo -e "Please enter disk names \n `pvs`"
 		read pvnames
 		
-		# Verify physical volume exists
+		# if device entered is a valid physical volume
+		#
+		#
+		# add a step to a verify input not enterd twice
+		# the same as earler
+		#
+		#
 		
 		if [[ $(sudo pvs | grep "$pvnames" ) ]] ; then
 			echo "$pvnames is valid and will be used"
+
+		# if device entered is not a valid pv
+
+		elif
+			
+		# Verify device not entered
+
 		else 
 			echo "Device $pvnames is not valid"
 		fi
+	
 	else
 		break
 	fi
