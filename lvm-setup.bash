@@ -1,5 +1,9 @@
 #/bin/env bash
+# 
+# enable for debugging
+set -x
 #
+
 ##########################################################
 #
 # This code is split into four sections
@@ -18,6 +22,7 @@
 # 
 
 # Add a yes or no function
+
 fn() {
 	while true; do
 		case $input in
@@ -84,8 +89,8 @@ while true ; do
 	
 	# verify disk is valid if there is input
 	
-	elif [[ ! $(sudo fdisk -l | awk '/^\/dev/ {print $1}' | egrep  "^$pvinput"$) ]]; then 
-		echo $pvinput not a valid partion
+#	elif [[ ! $(sudo fdisk -l | awk '/^\/dev/ {print $1}' | egrep  "^$pvinput"$) ]]; then 
+#		echo $pvinput not a valid partion
 	
 	# verify partition not already entered
 	
@@ -114,7 +119,7 @@ pvs
 
 
 #
-# Section 2
+# Section 3
 #
 
 
@@ -125,16 +130,46 @@ pvs
 
 # Ask for volume group name
 
-echo "Enter volume group name"
+echo "Enter volume group name or press enter to pick a existing volume group"
 read vgname
-
+# check if somthing was entered
+if [[ -z $vgname ]]; then
+	while true; do
+		echo "No input found not creating a new volume group"
+		echo "which volume group do you want to use"
+		echo "$(vgs | awk 'NR>1 {print}')"
+		read vgname
+		if [[ -n $vgname ]]; then
+			if [[ $(vgs | awk 'NR>1 { print $1 }') = $vgname ]]; then
+				echo $vgname\ selected
+				break
+			else
+				echo "$vgname does not exist would you like to make it?"
+				read input
+				fn input
+				if [[ $output == true ]] ;then
+					break
+				fi
+			fi
+		fi
+	done
+fi
+echo $vgname
 # If you entered a volume ask if you want to use it
+#
+#
+# This doesnt work
+#
+#
+#
+#
 
-if [[ -n $pvinput ]] ; then
-	read -r -p "Do you want to create a volume group using $pvinput" input 
+if [[ -z ${pvcandidates[1]} ]]; then 
+	echo "Do you want to create $vgname using input ${pvcandidates[@]}"
 	fn input
 	if [[ $output == true ]]; then
-		physical-volumes=$output
+		physicalvolumes=("${pvcandidates[@]}")
+		echo "${physicalvolumes[@]}"
 	fi
 
 # If you didnt enter a input
@@ -144,11 +179,12 @@ else
 	read output
 fi
 
-# Add another input loop untill finished
+# Add another input loop until finished
 while true; do
 	echo "would you like to add another physical volume"
-	fn input
-	if [[ output == true ]]; then
+	read input
+	fn $input
+	if [[ $output == true ]]; then
 		echo "Please enter disk names"
 		read pvnames
 		
@@ -163,3 +199,9 @@ while true; do
 		break
 	fi
 done
+
+#
+# Section 4
+#
+
+# 
