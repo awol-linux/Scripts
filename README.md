@@ -3,5 +3,7 @@
 
 ### TODO
 
-- [ ] write FizzBuzz in python 
-
+- [x] Write FizzBuzz in python 
+- [ ] Change vgname variable name
+- [ ] Add lvm commands
+- [ ] Add logical volume secton  
