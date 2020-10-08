@@ -28,12 +28,13 @@ while true ; do
 	echo 'Please enter physcal device path or press Enter to skip'
 	echo "available paritions are" 
 	if [[ -n ${pvcandidates[*]} ]];then 
-		echo "$(lsblk -o name,type,fstype,size \
-			| awk -F'-' '/part\s{2}/ {$1="" ;printf "/dev/"; print $2}')" \
-			| grep -vI $(printf '%s\n' "${pvcandidates[@]}")
+		echo "${pvcandidates[@]}"
+		echo " " 
+		echo "$(lsblk -o name,type,fstype,size | awk -F'-' '/part\s{2}/ {$1="" ;printf "/dev/"; print $2}')" \
+			| grep -v $(printf '%s\n' "${pvcandidates[@]}")
 	else
 		echo "$(lsblk -o name,type,fstype,size \
-			| awk -F'-' '/part\s{2}/ {$1="";printf "/dev/"; print $2}')"
+			| awk -F'-' '/part\s{2}/ {$1="" ; print $2}')"
 	fi
 	read pvinput
 	
@@ -74,15 +75,11 @@ pvs
 # assign volume group
 echo "Enter volume group name"
 read vgname
-if [[ -n $pvinput ]] ; then
+if [[ ! -z $pvinput ]] ; then
 		read -r -p "Do you want to create a volume group using $pvinput" input 
 		fn input
 		if [[ $output == true ]]; then
 			physical-volumes=$output
-		fi
-else
-	echo "please enter a physical volume to use (1 at a time)"
-	read output
 fi
 
 while true; do
