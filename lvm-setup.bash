@@ -7,7 +7,7 @@
 ##########################################################
 #
 # This code is split into four sections
-# Section 1 is where i declare functions
+# Section 1 is where I declare functions
 # Section 2 is for assigning physical volumes
 # Section 3 is for creating volumes groups
 # Section 4 is for creating logical volumes
@@ -17,9 +17,9 @@
 
 # Check for root privelidge
 
-if [ "$EUID" -ne 0 ]
-  then echo "This script requires root permission in order to run."
-  exit
+if [ "$EUID" -ne 0 ]; then
+	echo "This script requires root permission in order to run."
+	exit
 fi
 
 
@@ -31,14 +31,14 @@ fi
 # Add a yes or no function that loops until you answer
 
 defyes() {
-	while true; do
+	while [ 1 == 1 ]; do
 		case $input in
 			[yY][eE][sS]|[yY]|"")
-				output=true
+				return 0
 				break
 				;;
 			[nN][oO]|[nN])
-				output=false
+				return 1 
 				break
 		       		;;
 			*)
@@ -49,13 +49,6 @@ defyes() {
 		esac
 	done
 }
-
-
-
-
-
-
-
 
 #
 # Section 2 for Assigning Physical Volumes
@@ -68,90 +61,166 @@ defyes() {
 # Create array for physical volumes yet to be assigned
 
 declare -a pvcandidates
+declare -a pvunassign
 
 # Enter device path loop until done
-
 while true; do
-	echo -e "Please enter physical device path or press ENTER to skip \n The following partitions are available \n" 
-
-	#
-	# section 2a 
-	# List available devices
-	#
-	
-	# Check if any physical volumes have been assigned
-	
-	if [[ -n ${pvcandidates[*]} ]]; then 
-		
-		# If there are candidates echo available partitions and remove any candidates.
-
-		echo "$(lsblk -o name,type,fstype,size \
-			| awk -F'-' '/part\s{2}/ {$1="" ;printf "/dev/"; print $2}')" \
-			| grep -vI $(printf '%s\n' "${pvcandidates[@]}")
-	
-	else
-	
-		# If there aren-t candidates echo available partitions disks.
-	
-		echo "$(lsblk -o name,type,fstype,size \
-			| awk -F'-' '/part\s{2}/ {$1="";printf "/dev/"; print $2}')"
-	fi
-	
-	#
-	# section 2b
-	# handle physical volume input
-	#
-	
-	read pvinput
-	
-	# if blank line entered then exit loop 
-
-	if [[ -z $pvinput ]]; then
-	       	echo "No input given not assigning any new partitions" 
-		break
-	
-	# verify disk is valid if there is input
-
-	# disabled for debugging
-
-	elif [[ ! $(sudo fdisk -l | awk '/^\/dev/ {print $1}' | egrep  "^$pvinput"$) ]]; then 
-		echo $pvinput not a valid partion
-	
-	# verify partition not already entered
-	
-	elif [[ $(printf '%s\n' "${pvcandidates[@]}" | grep -w -P "$pvinput") ]]; then
-		echo "$pvinput already enterd"
-	
-	# Since we validated the partition now add partition to array
-	
-	else	
-		pvcandidates+=($pvinput) 
-		echo -e "partition $pvinput valid \n ${pvcandidates[@]}"
-		
-	fi
-
-	# Now add another partition
-
-	echo "would you like to enter another partitioni (ENTER for yes)"
+	echo "Please confirm the  partition table is good"
+	pvs
 	read input
-	defyes $input
-	if [[ $output == false ]]; then
-		break
+		if defyes $input; then
+			break
+		else 
+			read -p "would you like to add or remove a partition"$'\n' issue
+			echo $issue
+			while true; do
+				case $issue in
+					[Aa][Dd][Dd]|[Ad])
+						loop=add
+						break
+						;;
+					[Rr][Ee][Mm][Oo][Vv][Ee])
+						loop=remove
+						break
+						;;
+					*)
+						read issue
+						;;
+				esac
+			done
+		fi
+
+
+	if [[ $loop == add ]]; then
+	
+	
+		#
+		# section 2a 
+		# List available devices
+		#
+	
+		# Check if any physical volumes have been assigned
+		
+		echo -e "Please enter physical device path or press ENTER to skip \n The following partitions are available \n" 
+	
+		while true; do
+
+
+			if [[ -n ${pvcandidates[*]} ]]; then 
+		
+				# If there are candidates echo available partitions and remove any candidates.
+
+				echo "$(lsblk -o name,type,fstype,size \
+					| awk -F'-' '/part\s{2}/ {$1="" ;printf "/dev/"; print $2}')" \
+					| grep -vI $(printf '%s\n' "${pvcandidates[@]}")
+		
+			else
+	
+				# If there aren-t candidates echo available partitions disks.
+	
+				echo "$(lsblk -o name,type,fstype,size \
+					| awk -F'-' '/part\s{2}/ {$1="";printf "/dev/"; print $2}')"
+			fi
+		
+		#
+		# section 2b
+		# handle physical volume input
+		#
+	
+			read pvinput
+	
+			# if blank line entered then exit loop 
+
+			if [[ -z $pvinput ]]; then
+	       			echo "No input given not assigning any new partitions" 
+				break
+	
+			# verify disk is valid if there is input
+
+			elif [[ ! $(sudo fdisk -l | awk '/^\/dev/ {print $1}' | egrep  "^$pvinput"$) ]]; then 
+				echo $pvinput not a valid partion
+	
+			# verify partition not already entered
+	
+			elif [[ $(printf '%s\n' "${pvcandidates[@]}" | grep -w -P "$pvinput") ]]; then
+				echo "$pvinput already enterd"
+	
+			# Since we validated the partition now add partition to array
+	
+			else	
+				pvcandidates+=($pvinput) 
+				echo -e "partition $pvinput valid \n ${pvcandidates[@]}"
+		
+			fi
+
+			# Now add another partition
+
+			read -p "would you like to add another partitioni (ENTER for yes)"$'\n' input
+			defyes $input || break
+		done
+
+	fi
+	if [[ -n ${pvcandidates[*]} ]]; then 
+		pvcreate ${pvcandidates[*]}
+	fi
+	
+	if [[ $loop == remove ]]; then		
+		while [ 1 == 1 ]; do
+			
+			echo "which pv would you like to remove"
+			
+			if [[ -n ${pvunassign[*]} ]]; then
+				pvs | grep -v ${pvunassign[*]}
+			else
+				pvs
+			fi
+
+			read pvinput
+
+			# if blank line entered then exit loop 
+			
+			echo ''
+			
+			echo $pvinput
+			
+			if [[ -z $pvinput ]]; then
+	       			echo "No input given not removing any new partitions" 
+				break
+
+			elif [[ "$(pvs --separator ';' | awk -F';' '$2 == "" {print $1}' | egrep -o $pvinput)" == $pvinput ]]; then
+				
+				echo partition $pvinput selected 
+				pvunassign+=($pvinput)
+
+			elif [[ "$(pvs --separator ';' | awk -F';' '$2 != "" {print $1}' | egrep -o $pvinput)" == $pvinput ]]; then
+				
+				echo "partition $pvinput $(pvs --separator ';' | grep -o $pvinput) is in volume group $(pvs --separator ';' | grep $pvinput | cut -d';' -f2)"
+				read input
+				defyes $input && pvunassign+=($pvinput)
+
+			elif [[ ! $(pvs --separator ';' | egrep $pvinput) ]] && [[ $(lsblk -o path | grep $pvinput) ]]; then
+
+				echo "partition $pvinput exists but is not a physical volume"	
+
+			elif [[ ! $(lsblk -o path | grep $pvinput) ]]; then
+
+				echo "partition $pvinput does not exist"
+
+			else 
+				echo "i dont know how you got here"
+
+			fi
+
+			echo "would you like to remove another partition"
+			read input
+			defyes $input || break
+		done
+		if [[ -n ${pvunassign[*]} ]]; then 
+			pvremove ${pvunassign[*]}
+		fi
+	
 	fi
 done
-
-# Show Physical Volume To confirm action was done
-
-
-if [[ -n ${pvcandidates[*]} ]]; then 
-	pvcreate ${pvcandidates[*]}
-fi
-
-
-echo "pelase verify that the following partition table is accurate"
-pvs
-read input
-defyes $input
 
 
 #
@@ -166,22 +235,29 @@ defyes $input
 
 
 if [[ -z $pvselect ]] && [[ -n ${physicalvolumes[*]} ]]; then
-	echo "no input givin using ${physicalvolumes[*]}"
+	read -p "would you like to use "
 
 # ask instead of do
 
 elif [[ -z $pvselect ]]; then
-	echo "no physical volumes assigned please try again"
+	echo "no physical volumes assigned would you like to try again"
+	
 
-elif [[ sudo fdisk -l | awk '/^\/dev/ {print $1}' | egrep  "^$pvselect" ]]
-	echo "Disk not found did you enter a valid partition"
+#elif [[ $(sudo fdisk -l | awk '/^\/dev/ {print $1}' | egrep  "^$pvselect)" ]]; then
+#	echo "Disk not found did you enter a valid partition"
 
-elif [[ "$(lsblk $pvselect -o fstype | awk 'NR>1 {print}')" != LVM2_member ]]
+
+elif [[ "$(lsblk $pvselect -o fstype | awk 'NR>1 {print}')" != LVM2_member ]]; then
 	echo "$pvselect is not of type LVM2_member"
 
-elif [[ -n $(sudo pvdisplay $pvselect --colon | awk -F':' '{print $2}') ]]
+
+elif [[ -n $(sudo pvdisplay $pvselect --colon | awk -F':' '{print $2}') ]]; then
 	echo "$pvselect is in use by $(sudo pvdisplay $pvselect --colon | awk -F':' '{print $2}')"
 
+else 
+	echo "i dont know what happened"
+
+fi
 #
 #	echo $pvselect 
 #
@@ -197,37 +273,13 @@ elif [[ -n $(sudo pvdisplay $pvselect --colon | awk -F':' '{print $2}') ]]
 # check if you made any new physical volumes
 
 if [[ -n ${pvcandidates[*]} ]]; then 
-	echo "Do you want to create the volume group using input ${pvcandidates[@]}"
-	read input
-	defyes $input
-
-	if [[ $output == true ]]; then
-		physicalvolumes=("${pvcandidates[@]}")
-		echo "${physicalvolumes[@]}"
-
-	else
-		echo "please select a physical volume"
-		read pvselect
-	fi
-
-	
-	
-	
-	
-	
-	
-	
-	
-
-	
-	
-	
-	
-	
-	
-	
-	
-echo "${physicalvolumes[@]}"
+	read -p "Do you want to create the volume group using input ${pvcandidates[@]}\n" input
+	defyes $input &&\
+		physicalvolumes=("${pvcandidates[@]}")\
+			||\
+		read -p "please select a physical volume\n" pvselect
+	#fi
+#echo "${physicalvolumes[@]}"
 
 
 
@@ -329,5 +381,4 @@ echo $vgname
 #
 # Section 4
 #
-
 # 
