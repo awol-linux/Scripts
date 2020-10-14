@@ -232,30 +232,42 @@ done
 # If you added a physical volume 
 # then assume you want to use it  
 
+# If you entered a volume ask if you want to use it
 
+# check if you made any new physical volumes
 
-if [[ -z $pvselect ]] && [[ -n ${physicalvolumes[*]} ]]; then
-	read -p "would you like to use "
+if [[ -n ${pvcandidates[*]} ]]; then 
+	echo "Do you want to create the volume group using input ${pvcandidates[@]}" 
+	read input
+	defyes $input && physicalvolumes=("${pvcandidates[@]}") 
+else
+	echo "please select a volume"
+	pvs
+	# ask instead of do
+	read pvselect
 
-# ask instead of do
-
-elif [[ -z $pvselect ]]; then
-	echo "no physical volumes assigned would you like to try again"
+	if [[ -z $pvselect ]]; then
+		echo "no physical volumes assigned would you like to try again press enter to scripts"
 	
-
-#elif [[ $(sudo fdisk -l | awk '/^\/dev/ {print $1}' | egrep  "^$pvselect)" ]]; then
-#	echo "Disk not found did you enter a valid partition"
-
-
-elif [[ "$(lsblk $pvselect -o fstype | awk 'NR>1 {print}')" != LVM2_member ]]; then
-	echo "$pvselect is not of type LVM2_member"
+	elif [[ ! $(sudo fdisk -l | awk '/^\/dev/ {print $1}' | egrep  "^$pvselect") ]]; then
+		echo "Disk not found did you enter a valid partition"
 
 
-elif [[ -n $(sudo pvdisplay $pvselect --colon | awk -F':' '{print $2}') ]]; then
-	echo "$pvselect is in use by $(sudo pvdisplay $pvselect --colon | awk -F':' '{print $2}')"
+	elif [[ "$(lsblk $pvselect -o fstype | awk 'NR>1 {print}')" != LVM2_member ]]; then
+		echo "$pvselect is not of type LVM2_member"
 
-else 
-	echo "i dont know what happened"
+
+	elif [[ -n $(sudo pvdisplay $pvselect --colon | awk -F':' '{print $2}') ]]; then
+		echo "$pvselect is in use by $(sudo pvdisplay $pvselect --colon | awk -F':' '{print $2}')"
+
+	elif [[   ]]
+		echo "partition $pvselect is valid"
+
+	else 
+		echo "i dont know what happened"
+
+
+	fi
 
 fi
 #
@@ -263,44 +275,29 @@ fi
 #
 # else
 
-
-
-
-
-
-# If you entered a volume ask if you want to use it
-
-# check if you made any new physical volumes
-
-if [[ -n ${pvcandidates[*]} ]]; then 
-	read -p "Do you want to create the volume group using input ${pvcandidates[@]}\n" input
-	defyes $input &&\
-		physicalvolumes=("${pvcandidates[@]}")\
-			||\
-		read -p "please select a physical volume\n" pvselect
-	#fi
-#echo "${physicalvolumes[@]}"
-
-
-
-
-
-
-
-
-
-
-
-
-
 # If you didnt enter any input
 
-else
-	echo "please enter a physical volume to use (1 at a time)"
-	read output
-fi
+#else
+#	echo "please enter a physical volume to use (1 at a time)"
+#	read output
 
 # Add another input loop until finished
+
+
+echo '
+
+
+
+
+
+
+
+
+
+
+
+
+'
 while true; do
 	echo "would you like to add another physical volume"
 	read input
@@ -367,14 +364,11 @@ while true; do
 	else
 		echo "$vgname does not exist would you like to make it?"
 		read input
-		defyes $input
-		if [[ $output == true ]]; then
-			break
-		fi
+		defyes $input && break
 	fi
 done
 
-echo $vgname
+echo $vgname ${physicalvolumes[*]}
 
 
 
