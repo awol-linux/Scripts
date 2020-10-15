@@ -260,7 +260,7 @@ else
 	elif [[ -n $(sudo pvdisplay $pvselect --colon | awk -F':' '{print $2}') ]]; then
 		echo "$pvselect is in use by $(sudo pvdisplay $pvselect --colon | awk -F':' '{print $2}')"
 
-	elif [[   ]]
+	elif [[ "$(pvs --separator=';' | egrep -o '$pvselect')" ]]; then
 		echo "partition $pvselect is valid"
 
 	else 
